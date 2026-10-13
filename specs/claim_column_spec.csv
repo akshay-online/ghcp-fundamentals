@@ -1,0 +1,12 @@
+COLUMN_NAME,DATA_TYPE,LENGTH,PRECISION,SCALE,NULLABLE,IS_KEY,SENSITIVE,FORMAT,DESCRIPTION
+CLAIM_ID,VARCHAR,20,,,N,Y,N,,Unique claim identifier
+POLICY_ID,VARCHAR,20,,,N,N,N,,Policy the claim was made against
+CLAIM_TYPE,VARCHAR,20,,,N,N,N,,"ACCIDENT, ILLNESS, HOSPITAL, CANCER"
+CLAIM_STATUS,VARCHAR,15,,,N,N,N,,"OPEN, IN_REVIEW, PAID, DENIED, CLOSED"
+LOSS_DATE,DATE,,,,N,N,N,YYYY-MM-DD,Date the loss event happened
+REPORTED_DATE,DATE,,,,N,N,N,YYYY-MM-DD,Date the claim was reported
+CLAIM_AMOUNT,NUMBER,,18,2,N,N,N,,Amount claimed in USD
+PAID_AMOUNT,NUMBER,,18,2,Y,N,N,,Amount paid in USD; empty until paid
+CLAIMANT_NAME,VARCHAR,100,,,N,N,Y,,Full name of the claimant
+DIAGNOSIS_CODE,VARCHAR,10,,,Y,N,Y,,ICD-10 diagnosis code
+SOURCE_FILE_DATE,DATE,,,,N,N,N,YYYY-MM-DD,Extract date taken from the file name

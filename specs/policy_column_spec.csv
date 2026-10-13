@@ -1,0 +1,17 @@
+COLUMN_NAME,DATA_TYPE,LENGTH,PRECISION,SCALE,NULLABLE,IS_KEY,SENSITIVE,FORMAT,DESCRIPTION
+POLICY_ID,VARCHAR,20,,,N,Y,N,,Unique policy identifier from the policy admin system
+POLICY_NUMBER,VARCHAR,30,,,N,N,N,,Policy number printed on customer documents
+PRODUCT_CODE,VARCHAR,10,,,N,N,N,,Product the policy was sold under
+POLICY_STATUS,VARCHAR,15,,,N,N,N,,"Current status: ACTIVE, LAPSED, REINSTATED, TERMINATED"
+ISSUE_DATE,DATE,,,,N,N,N,YYYY-MM-DD,Date the policy was issued
+EFFECTIVE_DATE,DATE,,,,N,N,N,YYYY-MM-DD,Date coverage started
+TERMINATION_DATE,DATE,,,,Y,N,N,YYYY-MM-DD,Date coverage ended; empty while in force
+ANNUAL_PREMIUM,NUMBER,,18,2,N,N,N,,Annualised premium in USD; zero allowed for paid-up policies
+PAYMENT_FREQUENCY,VARCHAR,10,,,N,N,N,,"MONTHLY, QUARTERLY, ANNUAL"
+INSURED_FIRST_NAME,VARCHAR,50,,,N,N,Y,,First name of the insured person
+INSURED_LAST_NAME,VARCHAR,50,,,N,N,Y,,Last name of the insured person
+INSURED_DOB,DATE,,,,N,N,Y,YYYY-MM-DD,Date of birth of the insured person
+INSURED_SSN,VARCHAR,11,,,Y,N,Y,999-99-9999,Social security number of the insured person
+STATE_CODE,VARCHAR,2,,,N,N,N,,2-letter US state where the policy was issued
+AGENT_ID,VARCHAR,15,,,Y,N,N,,Writing agent identifier
+SOURCE_FILE_DATE,DATE,,,,N,N,N,YYYY-MM-DD,Extract date taken from the file name

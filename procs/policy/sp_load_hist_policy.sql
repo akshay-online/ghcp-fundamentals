@@ -1,0 +1,76 @@
+CREATE OR REPLACE PROCEDURE ETL.SP_LOAD_HIST_POLICY(P_LOAD_DATE VARCHAR)
+RETURNS VARCHAR
+LANGUAGE JAVASCRIPT
+EXECUTE AS CALLER
+AS
+$$
+var PROC_NAME = 'ETL.SP_LOAD_HIST_POLICY';
+var TARGET    = 'HISTORY.HIST_POLICY';
+
+function exec(sql, binds) {
+  return snowflake.createStatement({ sqlText: sql, binds: binds || [] }).execute();
+}
+
+function rowsAffected(rs) {
+  rs.next();
+  return rs.getColumnValue(1);
+}
+
+function audit(status, rows, msg) {
+  exec(
+    "INSERT INTO ETL.LOAD_AUDIT (PROC_NAME, TARGET_TABLE, STATUS, ROW_COUNT, MESSAGE, RUN_USER, RUN_TS) " +
+    "SELECT ?, ?, ?, ?, ?, CURRENT_USER(), CURRENT_TIMESTAMP()",
+    [PROC_NAME, TARGET, status, rows, msg]
+  );
+}
+
+try {
+  exec("BEGIN");
+
+  var closed = rowsAffected(exec(
+    "UPDATE HISTORY.HIST_POLICY h " +
+    "SET END_EFFECTIVE_DATE = DATEADD(DAY, -1, TO_DATE(?, 'YYYY-MM-DD')), " +
+    "    CURRENT_IND        = 'N', " +
+    "    LAST_UPDATE_USER   = CURRENT_USER(), " +
+    "    LAST_UPDATE_DATE   = CURRENT_TIMESTAMP() " +
+    "FROM STAGING.STG_POLICY s " +
+    "WHERE h.POLICY_ID = s.POLICY_ID " +
+    "  AND h.CURRENT_IND = 'Y' " +
+    "  AND HASH(h.POLICY_NUMBER, h.PRODUCT_CODE, h.POLICY_STATUS, h.ISSUE_DATE, h.EFFECTIVE_DATE, " +
+    "           h.TERMINATION_DATE, h.ANNUAL_PREMIUM, h.PAYMENT_FREQUENCY, h.INSURED_FIRST_NAME, " +
+    "           h.INSURED_LAST_NAME, h.INSURED_DOB, h.INSURED_SSN, h.STATE_CODE, h.AGENT_ID) " +
+    "   <> HASH(s.POLICY_NUMBER, s.PRODUCT_CODE, s.POLICY_STATUS, s.ISSUE_DATE, s.EFFECTIVE_DATE, " +
+    "           s.TERMINATION_DATE, s.ANNUAL_PREMIUM, s.PAYMENT_FREQUENCY, s.INSURED_FIRST_NAME, " +
+    "           s.INSURED_LAST_NAME, s.INSURED_DOB, s.INSURED_SSN, s.STATE_CODE, s.AGENT_ID)",
+    [P_LOAD_DATE]
+  ));
+
+  var inserted = rowsAffected(exec(
+    "INSERT INTO HISTORY.HIST_POLICY (" +
+    "  POLICY_ID, POLICY_NUMBER, PRODUCT_CODE, POLICY_STATUS, ISSUE_DATE, EFFECTIVE_DATE, " +
+    "  TERMINATION_DATE, ANNUAL_PREMIUM, PAYMENT_FREQUENCY, INSURED_FIRST_NAME, INSURED_LAST_NAME, " +
+    "  INSURED_DOB, INSURED_SSN, STATE_CODE, AGENT_ID, SOURCE_FILE_DATE, " +
+    "  BEGIN_EFFECTIVE_DATE, END_EFFECTIVE_DATE, CURRENT_IND, LAST_UPDATE_USER, LAST_UPDATE_DATE) " +
+    "SELECT s.POLICY_ID, s.POLICY_NUMBER, s.PRODUCT_CODE, s.POLICY_STATUS, s.ISSUE_DATE, s.EFFECTIVE_DATE, " +
+    "       s.TERMINATION_DATE, s.ANNUAL_PREMIUM, s.PAYMENT_FREQUENCY, s.INSURED_FIRST_NAME, s.INSURED_LAST_NAME, " +
+    "       s.INSURED_DOB, s.INSURED_SSN, s.STATE_CODE, s.AGENT_ID, s.SOURCE_FILE_DATE, " +
+    "       TO_DATE(?, 'YYYY-MM-DD'), TO_DATE('9999-12-31'), 'Y', CURRENT_USER(), CURRENT_TIMESTAMP() " +
+    "FROM STAGING.STG_POLICY s " +
+    "LEFT JOIN HISTORY.HIST_POLICY h " +
+    "  ON h.POLICY_ID = s.POLICY_ID AND h.CURRENT_IND = 'Y' " +
+    "WHERE h.POLICY_ID IS NULL",
+    [P_LOAD_DATE]
+  ));
+
+  exec("COMMIT");
+
+  var msg = 'SUCCESS: inserted=' + inserted + ' closed=' + closed;
+  audit('SUCCESS', inserted, msg);
+  return msg;
+
+} catch (err) {
+  exec("ROLLBACK");
+  audit('FAILED', 0, err.message);
+  throw err;
+}
+$$;

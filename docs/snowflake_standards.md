@@ -42,19 +42,8 @@ All identifiers are UPPER_SNAKE_CASE.
 5. Write one row to `ETL.LOAD_AUDIT` on success and on failure.
 6. Return a message with the row counts, e.g. `SUCCESS: inserted=120 closed=8`.
 7. On failure, re-throw after auditing so JS7 marks the job as failed.
-8. Every procedure starts with a header comment:
-
-```
-/*******************************************************************************
- * Procedure : ETL.SP_LOAD_<LAYER>_<ENTITY>
- * Purpose   : one line
- * Params    : name - meaning and format
- * Reads     : tables read
- * Writes    : tables written
- * Run order : step N of the <ENTITY> JS7 job
- * Change log: YYYY-MM-DD  JIRA-KEY  short description
- ******************************************************************************/
-```
+8. Header comments, inline comments and process logging (`PROCESSING_LOG` with `JOB_UUID`)
+   follow [snowflake_logging_comment_standards.md](snowflake_logging_comment_standards.md).
 
 ## History (SCD Type 2) rules
 
@@ -68,3 +57,24 @@ All identifiers are UPPER_SNAKE_CASE.
 
 Columns flagged `SENSITIVE = Y` in the spec are masked by a Snowflake masking policy
 on the processing table. Procedures load real values; masking is applied at query time.
+
+## Testing (Python / pytest)
+
+- Framework: `pytest` + `snowflake-connector-python` (`tests/requirements.txt`).
+  JavaScript procedures run only inside Snowflake, so they are tested there, not in PySpark.
+  PySpark is used only for transformation logic that runs outside Snowflake.
+- File: `tests/<entity>/test_sp_load_<layer>_<entity>.py`, one file per procedure.
+- Use the `sf` fixture from `tests/conftest.py`. It runs every test in a zero-copy clone
+  of `DEMO_DB` that is dropped after the session. Never hard-code credentials.
+- Each test follows **Arrange / Act / Assert**:
+  1. `sf.truncate(...)` the tables the procedure reads and writes, then seed with `sf.insert_rows(...)`.
+  2. `sf.call("ETL.SP_...", args)`.
+  3. Assert on the target table, the return message and `sf.latest_audit(...)`.
+- Name tests `test_<behaviour>` (e.g. `test_changed_record_closes_old_version`).
+- Mark every test with `@pytest.mark.integration`.
+- Minimum coverage for a load procedure:
+  - happy path row counts and return message
+  - one test per business rule (SCD2: new, changed, unchanged, missing from file)
+  - tracking/audit columns populated correctly
+  - re-running with the same input is idempotent
+  - failure path: transaction rolled back and a `FAILED` audit row written
